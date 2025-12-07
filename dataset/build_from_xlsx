@@ -1,0 +1,141 @@
+from pathlib import Path
+from datetime import date
+import numpy as np
+import pandas as pd
+
+# --- RUTAS A TUS EXCELS (ajústalas si están en otra carpeta) ---
+VENTA_XLSX = Path("Dataset/idealista_venta.xlsx")
+ALQ_XLSX   = Path("Dataset/idealista_alquiler.xlsx")
+
+OUTPUT_DIR = Path("data")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_CSV = OUTPUT_DIR / "housing_precios_provincia.csv"
+
+# --- PARSEO DE MESES ---
+
+MONTHS_SHORT = {
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4,
+    "may": 5, "jun": 6, "jul": 7, "ago": 8,
+    "sep": 9, "oct": 10, "nov": 11, "dic": 12,
+}
+
+def parse_mes_to_year(mes_str) -> int:
+    """
+    Devuelve el año a partir de la columna 'Mes'.
+    Soporta tanto:
+      - fechas reales de Excel (Timestamp / date)
+      - texto tipo 'oct-25', 'ene-20', etc.
+    """
+    # Caso 1: ya es una fecha (pandas Timestamp o date de Python)
+    if isinstance(mes_str, (pd.Timestamp, date)):
+        return mes_str.year
+
+    # Caso 2: es texto
+    s = str(mes_str).strip().lower()
+
+    if "-" not in s:
+        raise ValueError(f"No reconozco el formato de Mes: {mes_str!r}")
+
+    parts = s.split("-")
+    mes_abbr = parts[0][:3]       # 'oct', 'ene', etc.
+    year_part = parts[-1]
+
+    # nos quedamos solo con los dígitos del año
+    digits = "".join(ch for ch in year_part if ch.isdigit())
+    if len(digits) < 2:
+        raise ValueError(f"No encuentro año en Mes: {mes_str!r}")
+
+    year_2d = digits[-2:]
+    if mes_abbr not in MONTHS_SHORT:
+        raise ValueError(f"Mes no reconocido: {mes_abbr!r} en {mes_str!r}")
+
+    year = 2000 + int(year_2d)  # asumimos 20xx
+    return year
+
+def clean_precio(precio_str: str) -> float:
+    """
+    Convierte '10,6 €/m2' -> 10.6 (float).
+    Si el valor es 'n.d.' u otra cosa sin dígitos, devuelve NaN.
+    """
+    s = str(precio_str).strip().lower()
+
+    # casos sin dato
+    if "n.d" in s or s == "":
+        return np.nan
+
+    # quitamos símbolos y espacios
+    s = s.replace("€/m2", "").replace("€", "").replace(" ", "")
+    # punto como miles, coma como decimal
+    s = s.replace(".", "").replace(",", ".")
+
+    # si después de limpiar no quedan dígitos, consideramos que no hay dato
+    if not any(ch.isdigit() for ch in s):
+        return np.nan
+
+    return float(s)
+
+def load_excel(path: Path, tipo: str) -> pd.DataFrame:
+    """
+    Lee todas las hojas (una por CCAA) de un Excel y devuelve un DataFrame con:
+    ['ccaa', 'provincia', 'anio', 'precio_m2', 'tipo']
+    donde tipo = 'venta' o 'alquiler'.
+    """
+    sheets = pd.read_excel(path, sheet_name=None)
+    dfs = []
+
+    for ccaa, df in sheets.items():
+        # esperamos columnas: Provincia, Mes, Precio m2
+        if not {"Provincia", "Mes", "Precio m2"}.issubset(df.columns):
+            continue  # por si hay hojas raras
+
+        tmp = df[["Provincia", "Mes", "Precio m2"]].copy()
+        tmp = tmp.dropna(subset=["Provincia", "Mes", "Precio m2"])
+
+        tmp["ccaa"] = ccaa
+        tmp["anio"] = tmp["Mes"].apply(parse_mes_to_year)
+        tmp["precio_m2"] = tmp["Precio m2"].apply(clean_precio)
+        tmp["tipo"] = tipo
+
+        tmp.rename(columns={"Provincia": "provincia"}, inplace=True)
+        dfs.append(tmp[["ccaa", "provincia", "anio", "precio_m2", "tipo"]])
+
+    if not dfs:
+        raise ValueError(f"No se han encontrado hojas válidas en {path}")
+    return pd.concat(dfs, ignore_index=True)
+
+def main():
+    # Cargamos venta y alquiler
+    df_venta = load_excel(VENTA_XLSX, tipo="venta")
+    df_alq   = load_excel(ALQ_XLSX,   tipo="alquiler")
+
+    # Media anual por provincia/ccaa
+    venta_year = (
+        df_venta
+        .groupby(["ccaa", "provincia", "anio"], as_index=False)["precio_m2"]
+        .mean()
+        .rename(columns={"precio_m2": "precio_compra_m2"})
+    )
+
+    alq_year = (
+        df_alq
+        .groupby(["ccaa", "provincia", "anio"], as_index=False)["precio_m2"]
+        .mean()
+        .rename(columns={"precio_m2": "precio_alquiler_m2"})
+    )
+
+    # Unir en un único dataset
+    full = venta_year.merge(
+        alq_year,
+        on=["ccaa", "provincia", "anio"],
+        how="outer"
+    ).sort_values(["ccaa", "provincia", "anio"])
+
+    # Orden de columnas final
+    full = full[["ccaa", "provincia", "anio", "precio_compra_m2", "precio_alquiler_m2"]]
+
+    full.to_csv(OUTPUT_CSV, index=False)
+    print(f"CSV generado: {OUTPUT_CSV}")
+    print(full.head())
+
+if __name__ == "__main__":
+    main()

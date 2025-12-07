@@ -1,0 +1,71 @@
+:root{
+  --bg: #f4f6f8;
+  --card-bg: #ffffff;
+  --card-shadow: 0 6px 18px rgba(11,37,69,0.06);
+  --accent: #0b2545;
+  --muted: #556770;
+  --radius: 12px;
+  --gap: 20px;
+}
+
+body {
+  background: var(--bg);
+  font-family: Inter, Arial, sans-serif;
+  color: #243748;
+}
+
+/* Tarjeta consistente */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  padding: 16px;
+  border: none;
+  margin-bottom: var(--gap);
+}
+
+/* Títulos en tarjetas */
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 12px 0;
+}
+
+/* Subtítulos / texto fuerte dentro de tarjeta */
+.card-subtitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 8px 0;
+}
+
+/* Texto normal dentro de tarjeta */
+.card-text {
+  font-size: 0.95rem;
+  color: #263238;
+  line-height: 1.45;
+}
+
+/* Etiquetas y sliders */
+.label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #243748;
+  margin-bottom: 6px;
+}
+.slider-label {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* Contenedor izquierdo: que no se estire */
+.left-panel {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* Pequeños refinamientos */
+.dash-tabs .tab { border-radius: 6px 6px 0 0; }
+.card:hover { transform: translateY(-2px); transition: 150ms ease; }
