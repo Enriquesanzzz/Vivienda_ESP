@@ -2,7 +2,7 @@
 
 **Autor:** Enrique Sanz Tur  
 **Asignatura:** Desarrollo de Aplicaciones para la Visualización de Datos (DAVD, 2025–26)  
-**Profesor:** David Martín Cañás  
+**Profesor:** David Martín-Corral
 
 ---
 
@@ -166,3 +166,4 @@ Vivienda_ESP/
 ├── notebooks/           # Notebooks de exploración y modelado
 ├── assets/              # Estilos CSS personalizados y recursos estáticos
 └── README.md            # Este documento
+
